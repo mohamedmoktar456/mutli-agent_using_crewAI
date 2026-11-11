@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 from crewai import Agent, Crew, Process, Task
-from crewai.llm import LLM
+from crewai import LLM
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,9 +20,12 @@ def configured_llm() -> LLM:
     base_url = os.getenv("LLM_BASE_URL", "").strip()
 
     defaults = {
-        "openai": ("gpt-4o-mini", "OPENAI_API_KEY"),
-        "gemini": ("gemini/gemini-2.0-flash", "GEMINI_API_KEY"),
-        "anthropic": ("claude-3-5-haiku-latest", "ANTHROPIC_API_KEY"),
+        "openai": ("openai/gpt-4o-mini", "OPENAI_API_KEY"),
+        "gemini": ("gemini/gemini-3.5-flash-lite", "GEMINI_API_KEY"),
+        "anthropic": (
+            "anthropic/claude-haiku-4-5-20251001",
+            "ANTHROPIC_API_KEY",
+        ),
         "ollama": ("ollama/llama3.1", ""),
         "openrouter": ("openrouter/openai/gpt-4o-mini", "OPENROUTER_API_KEY"),
     }
@@ -37,7 +40,9 @@ def configured_llm() -> LLM:
             f"No API key found. Set LLM_API_KEY or {provider_key} in .env."
         )
 
-    kwargs: dict[str, Any] = {"model": model or default_model, "verbose": False}
+    kwargs: dict[str, Any] = {"model": model or default_model}
+    if provider == "anthropic":
+        kwargs["max_tokens"] = 4096
     if api_key:
         kwargs["api_key"] = api_key
     if base_url:
@@ -47,47 +52,49 @@ def configured_llm() -> LLM:
 
 def build_crew(project_brief: str, llm: LLM | None = None) -> tuple[Crew, list[Agent], list[Task]]:
     """Create four collaborating agents and a sequential, inspectable workflow."""
+    if not project_brief.strip():
+        raise ValueError("Enter a project description first.")
     llm = llm or configured_llm()
 
     planner = Agent(
-        role="مدير المشروع ومخطط الفريق",
-        goal="فهم طلب المستخدم وتحويله إلى خطة دقيقة ومهام واضحة للفريق",
+        role="Project Manager and Team Planner",
+        goal="Understand the user's request and turn it into a clear plan and work assignments.",
         backstory=(
-            "أنت مدير مشاريع تقني تحلل احتياجات المستخدم، تحدد النطاق والافتراضات، "
-            "ثم توزع العمل على المطور ومصمم الواجهة ومختبر الجودة. تكتب بالعربية الواضحة."
+            "You are an experienced technical project manager. Analyze user needs, define scope and assumptions, "
+            "then assign work to the backend developer, UI/UX designer, and QA engineer. Write clearly in English."
         ),
         llm=llm,
         allow_delegation=False,
         verbose=False,
     )
     developer = Agent(
-        role="مطور Backend ومنطق الأعمال",
-        goal="اقتراح بنية خلفية عملية وتنفيذ منطق التطبيق وفق الخطة",
+        role="Backend Developer",
+        goal="Design a practical backend architecture and business logic that follows the project plan.",
         backstory=(
-            "أنت مطور Python خبير. تحدد المكونات والبيانات والواجهات والمنطق، "
-            "وتشرح التنفيذ بوضوح مع مراعاة الأمان والأخطاء والحالات الطرفية."
+            "You are an experienced Python developer. Define components, data, APIs, and business logic. "
+            "Explain implementation clearly and account for security, errors, and edge cases."
         ),
         llm=llm,
         allow_delegation=False,
         verbose=False,
     )
     designer = Agent(
-        role="مصمم واجهات وتجربة مستخدم",
-        goal="تصميم تجربة استخدام سهلة ومتناسقة تدعم احتياج المستخدم",
+        role="UI/UX Designer",
+        goal="Design an accessible, consistent user experience that meets the user's needs.",
         backstory=(
-            "أنت مصمم منتجات رقمية. تقترح هيكل الشاشات والتفاعلات والحالات "
-            "والنصوص وإرشادات الوصول، بما يتماشى مع احتياجات المشروع."
+            "You are a digital product designer. Propose screen structure, interactions, interface states, "
+            "copy, and accessibility guidance that fit the project requirements."
         ),
         llm=llm,
         allow_delegation=False,
         verbose=False,
     )
     qa = Agent(
-        role="مختبر جودة وضمان المتطلبات",
-        goal="مراجعة الخطة والحل وتصميم التجربة واكتشاف المخاطر والفجوات",
+        role="QA Engineer and Requirements Reviewer",
+        goal="Review the plan, backend design, and user experience; identify risks and gaps.",
         backstory=(
-            "أنت مهندس جودة دقيق. تحول المتطلبات إلى معايير قبول وحالات اختبار، "
-            "وتراجع مخرجات الفريق وتكشف العيوب مع خطوات قابلة للتحقق."
+            "You are a detail-oriented quality engineer. Turn requirements into acceptance criteria and test cases, "
+            "review team outputs, and report defects with reproducible checks."
         ),
         llm=llm,
         allow_delegation=False,
@@ -96,40 +103,40 @@ def build_crew(project_brief: str, llm: LLM | None = None) -> tuple[Crew, list[A
 
     plan_task = Task(
         description=(
-            "حلل وصف المشروع التالي: {project_brief}\n\n"
-            "اكتب ملخص الهدف والمستخدمين والوظائف الأساسية والقيود والافتراضات. "
-            "وزع العمل في خطة مرتبة تتضمن مهام Backend والواجهة والجودة ومعايير القبول."
+            "Analyze the following project brief: {project_brief}\n\n"
+            "Summarize the goal, users, core features, constraints, and assumptions. "
+            "Create an ordered plan with backend, UI/UX, and QA assignments plus acceptance criteria."
         ),
-        expected_output="خطة مشروع عربية منظمة، بمهام ومعايير قبول واضحة.",
+        expected_output="An organized project plan with clear assignments and acceptance criteria.",
         agent=planner,
     )
     backend_task = Task(
         description=(
-            "اعتماداً على طلب المستخدم وخطة مدير المشروع السابقة، صمم الحل الخلفي. "
-            "حدد المكونات والبيانات والواجهات وتدفق العمل، وقدّم مقتطفات تنفيذ عند الحاجة. "
-            "اذكر معالجة الأخطاء والاعتبارات الأمنية.\n\nطلب المستخدم: {project_brief}"
+            "Using the user's request and the project manager's plan, design the backend solution. "
+            "Define components, data, APIs, and workflow; include implementation snippets where useful. "
+            "Address error handling and security.\n\nUser request: {project_brief}"
         ),
-        expected_output="تصميم Backend عملي وخطوات تنفيذ متوافقة مع الخطة.",
+        expected_output="A practical backend design and implementation outline aligned with the plan.",
         agent=developer,
         context=[plan_task],
     )
     ui_task = Task(
         description=(
-            "اعتماداً على طلب المستخدم والخطة وتصميم Backend، اقترح تجربة الواجهة. "
-            "صف الشاشات والمكونات والتفاعلات والحالات الفارغة والأخطاء والنصوص. "
-            "اجعل التصميم قابلاً للتنفيذ ومناسباً للمستخدم.\n\nطلب المستخدم: {project_brief}"
+            "Using the user's request, the plan, and the backend design, propose the user experience. "
+            "Describe screens, components, interactions, empty and error states, and interface copy. "
+            "Make the design practical and suitable for the intended users.\n\nUser request: {project_brief}"
         ),
-        expected_output="مواصفات واجهة وتجربة استخدام متكاملة ومفهومة.",
+        expected_output="A complete, understandable UI and user experience specification.",
         agent=designer,
         context=[plan_task, backend_task],
     )
     qa_task = Task(
         description=(
-            "راجع الطلب وخطة المشروع وحل Backend وتجربة الواجهة. استخرج معايير القبول، "
-            "واكتب حالات تحقق عملية، ثم اذكر الفجوات والمخاطر واقتراحات إصلاحها. "
-            "اختم بحكم واضح على جاهزية المقترح والمتطلبات المتبقية.\n\nطلب المستخدم: {project_brief}"
+            "Review the request, project plan, backend solution, and user experience. Extract acceptance criteria, "
+            "write practical verification cases, and report gaps and risks with proposed fixes. "
+            "Conclude with a clear assessment of readiness and remaining requirements.\n\nUser request: {project_brief}"
         ),
-        expected_output="مراجعة جودة نهائية مع معايير قبول وحالات اختبار وفجوات واضحة.",
+        expected_output="A final quality review with acceptance criteria, test cases, and clearly reported gaps.",
         agent=qa,
         context=[plan_task, backend_task, ui_task],
     )
@@ -144,6 +151,6 @@ def build_crew(project_brief: str, llm: LLM | None = None) -> tuple[Crew, list[A
 
 def run_project(project_brief: str) -> Any:
     if not project_brief.strip():
-        raise ValueError("اكتب وصف المشروع أولاً.")
+        raise ValueError("Enter a project description first.")
     crew, _, _ = build_crew(project_brief)
     return crew.kickoff(inputs={"project_brief": project_brief.strip()})

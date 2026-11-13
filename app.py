@@ -98,8 +98,7 @@ st.markdown(
 html, body, [class*="css"] { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--ink); }
 [data-testid="stAppViewContainer"] { background:linear-gradient(180deg,#f1f5fb 0%,#f7f9fc 380px,#fff 780px); }
 [data-testid="stHeader"] { background:rgba(247,249,252,.98); }
-[data-testid="stSidebar"] { background:#eef2f7; border-right:1px solid #dce4ee; }
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] { color:#192a42; }
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display:none !important; }
 .block-container { max-width:1120px; padding-top:3.4rem; padding-bottom:3.5rem; }
 h1, h2, h3, .section-heading h2 { color:#13243a !important; letter-spacing:-.025em; }
 .brand { display:flex; align-items:center; gap:.65rem; margin:0 0 1.1rem; color:#1a2e49; font-size:.88rem; font-weight:800; letter-spacing:.09em; }
@@ -125,17 +124,20 @@ div[data-testid="stTextArea"] textarea, div[data-testid="stTextInput"] input { b
 div[data-testid="stTextArea"] textarea, div[data-testid="stTextInput"] input,
 [data-baseweb="input"] input, [data-baseweb="textarea"] textarea { background:#fff !important; color:#192a42 !important; border-color:#cbd6e3 !important; }
 [data-baseweb="select"] > div { background:#fff !important; color:#192a42 !important; border-color:#cbd6e3 !important; }
-div[data-testid="stForm"] label, div[data-testid="stSidebar"] p,
-div[data-testid="stSidebar"] h1, div[data-testid="stSidebar"] h2,
-div[data-testid="stSidebar"] h3 { color:#263a55 !important; }
-div[data-testid="stMetric"] { min-height:92px; padding:.85rem 1rem; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.92); box-shadow:0 4px 14px rgba(25,48,82,.035); }
-div[data-testid="stMetricLabel"] { color:#718197; font-size:.72rem; font-weight:750; letter-spacing:.07em; }
-div[data-testid="stMetricValue"] { font-size:clamp(1.15rem,1.8vw,1.55rem) !important; line-height:1.2; white-space:normal; overflow-wrap:anywhere; }
-div[data-testid="stMetricValue"] > div { font-size:inherit !important; }
+div[data-testid="stForm"] label { color:#263a55 !important; }
+.summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:1.1rem 0 2rem; }
+.summary-card { position:relative; min-height:142px; overflow:hidden; padding:1.15rem 1.3rem; border:1px solid #dce5ef; border-radius:16px; background:linear-gradient(145deg,#fff 35%,#f8fbff); box-shadow:0 8px 22px rgba(22,45,78,.055); }
+.summary-card::before { position:absolute; inset:0 auto 0 0; width:4px; background:linear-gradient(180deg,#2856c7,#39a7a0); content:""; }
+.summary-label { color:#718197; font-size:.68rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.summary-value { margin:.8rem 0 .35rem; color:#13243a; font-size:clamp(1.35rem,2.1vw,1.75rem); font-weight:760; letter-spacing:-.035em; line-height:1.08; }
+.summary-note { color:#687a90; font-size:.82rem; line-height:1.4; }
 @media (max-width: 760px) {
   .block-container { padding-top:2.7rem; }
   .hero { padding:1.4rem; border-radius:16px; }
   .role-copy { min-height:0; }
+  .summary-grid { grid-template-columns:1fr; gap:.7rem; }
+  .summary-card { min-height:0; padding:1rem 1.15rem; }
+  .summary-value { margin:.55rem 0 .25rem; }
 }
 </style>
 """,
@@ -145,19 +147,19 @@ div[data-testid="stMetricValue"] > div { font-size:inherit !important; }
 st.markdown(
     '<div class="brand"><span class="brand-icon">N</span><span>NORTHSTAR <span class="brand-sub">/ ENGINEERING STUDIO</span></span></div>'
     '<div class="hero"><div class="hero-kicker">CrewAI · Multi-agent engineering team</div>'
-    "<h1>From project brief to working code.</h1>"
-    "<p>An Engineering Lead coordinates backend, frontend, and test engineers. They produce a design, a Gradio app, backend code, and unit tests in one shared project folder.</p></div>",
+    "<h1>Turn your project brief into a ready-to-run starter.</h1>"
+    "<p>The Engineering Lead sets the plan. Three specialists build the backend, interface, and tests, then package every deliverable together for review.</p></div>",
     unsafe_allow_html=True,
 )
 
-metric_cols = st.columns(3, gap="medium")
-for col, label, value in zip(
-    metric_cols,
-    ["ENGINEERING TEAM", "WORKFLOW", "GENERATED FILES"],
-    ["4 engineers", "Design · Build · Test", "4 project files"],
-):
-    with col:
-        st.metric(label, value)
+st.markdown(
+    '<div class="summary-grid">'
+    '<article class="summary-card"><div class="summary-label">Delivery team</div><div class="summary-value">4 specialists</div><div class="summary-note">One Engineering Lead and three engineers</div></article>'
+    '<article class="summary-card"><div class="summary-label">Workflow</div><div class="summary-value">Plan → Build → Test</div><div class="summary-note">Each role owns a clear handoff</div></article>'
+    '<article class="summary-card"><div class="summary-label">Core deliverables</div><div class="summary-value">4 project files</div><div class="summary-note">Design, backend, interface, and tests</div></article>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     '<div class="section-heading"><h2>Meet the engineering team</h2><p>The Engineering Lead delegates focused work to three specialists.</p></div>',
@@ -220,14 +222,6 @@ with st.container(border=True):
             key="project_constraints_input",
         )
         submitted = st.form_submit_button("Generate engineering files", type="primary", use_container_width=True)
-
-with st.sidebar:
-    st.markdown("## Northstar")
-    st.caption("Project delivery workspace")
-    st.divider()
-    st.markdown("### Engineering workflow")
-    for stage in ["01  Engineering lead designs", "02  Backend engineer builds", "03  Frontend engineer builds", "04  Test engineer writes tests"]:
-        st.write(stage)
 
 if submitted:
     if not brief.strip():

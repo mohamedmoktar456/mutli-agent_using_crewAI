@@ -9,12 +9,12 @@ A Streamlit application that demonstrates a four-agent CrewAI engineering workfl
 3. **Frontend Engineer** writes a Gradio interface in `app.py` that uses the backend module.
 4. **Test Engineer** writes standard-library unit tests in `test_backend.py`.
 
-Each run saves `design.md`, `backend.py`, `app.py`, and `test_backend.py` together under its own `output/<run-id>/` folder, then adds `README.md`, `requirements.txt`, and `pyproject.toml` for `uv`. The app checks that the four agent deliverables exist, checks Python syntax, lists the saved files, and offers a ZIP download. Tests are generated but are not executed automatically; no custom agent tools or sandbox execution are enabled.
+Each run saves `design.md`, `backend.py`, `app.py`, and `test_backend.py` together under `output/Hierarchical/<run-id>/` or `output/Sequential/<run-id>/`, then adds `README.md`, `requirements.txt`, and `pyproject.toml` for `uv`. The app checks that the four agent deliverables exist and checks Python syntax. It shows the output folder path; it does not preview or download generated files. Tests are generated but are not executed automatically; no custom agent tools or sandbox execution are enabled.
 
 ## Requirements
 
 - Python 3.10–3.13
-- An OpenAI or Gemini API key
+- A Gemini API key for the included free-tier configuration; an OpenAI key is optional for alternate setups
 
 ## Setup
 
@@ -40,13 +40,13 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and add your OpenAI and Gemini keys. Each agent's default model is in `delivery_team/crew_config/agents.yaml`; `.env` provides provider/model overrides and fallback settings. The Engineering Lead and Backend Engineer use OpenAI in the example, while Frontend and Test use Gemini:
+Copy `.env.example` to `.env` and add your Gemini API key. All four agents use Gemini 3.5 Flash-Lite by default, which has a free tier subject to model and project quotas. OpenAI is optional if you later switch a role and have API credits:
 
 ```env
 LLM_PROVIDER=gemini
 LLM_MODEL=gemini/gemini-3.5-flash-lite
-ENGINEERING_LEAD_PROVIDER=openai
-BACKEND_ENGINEER_PROVIDER=openai
+ENGINEERING_LEAD_PROVIDER=gemini
+BACKEND_ENGINEER_PROVIDER=gemini
 FRONTEND_ENGINEER_PROVIDER=gemini
 TEST_ENGINEER_PROVIDER=gemini
 OPENAI_API_KEY=your-openai-api-key-here
@@ -68,23 +68,25 @@ Set an agent-specific provider in `.env`. Supported agent names are `ENGINEERING
 | Gemini | `gemini` | `gemini/gemini-3.5-flash-lite` |
 | OpenAI | `openai` | `openai/gpt-4o-mini` |
 
-For example, assign OpenAI to the Engineering Lead and Backend Engineer, and Gemini to the Frontend and Test Engineers:
+For the free-tier setup, keep every agent on Gemini:
 
 ```env
 LLM_PROVIDER=gemini
-BACKEND_ENGINEER_PROVIDER=openai
-ENGINEERING_LEAD_PROVIDER=openai
+BACKEND_ENGINEER_PROVIDER=gemini
+ENGINEERING_LEAD_PROVIDER=gemini
 FRONTEND_ENGINEER_PROVIDER=gemini
 TEST_ENGINEER_PROVIDER=gemini
 ```
 
 CrewAI's `llm` field in `agents.yaml` defines each role's default provider and model. Each role can override it through `<AGENT>_PROVIDER` or `<AGENT>_MODEL`; for example, `BACKEND_ENGINEER_MODEL=openai/gpt-5.4-mini`. If an agent has no YAML or role-specific setting, it inherits `LLM_PROVIDER` and `LLM_MODEL`. The app selects `OPENAI_API_KEY` or `GEMINI_API_KEY`/`GOOGLE_API_KEY` to match each role's provider. API keys remain in `.env`, not YAML. A shared `LLM_API_KEY` is used only for roles that use the global provider. The project supports OpenAI and Gemini.
 
-Gemini offers a limited free tier for eligible models and accounts; quotas and model access apply. OpenAI API calls are billed according to your OpenAI API account's pricing and credits. A key by itself does not guarantee free usage, so check billing before selecting OpenAI if you must avoid charges.
+Gemini 3.5 Flash-Lite is listed with free input and output on the Gemini API free tier, subject to usage quotas and project availability. OpenAI API calls use separate API billing and may fail if the organization has no credits.
 
 ## Workflow
 
-The crew uses `Process.hierarchical`. First, the Engineering Lead writes `design.md` as the execution contract: it defines module interfaces, assignments, and acceptance criteria. Each specialist receives that design as task context and has a fixed deliverable: Backend Engineer writes `backend.py`, Frontend Engineer writes `app.py` using the backend contract, and Test Engineer writes `test_backend.py` against the backend implementation. CrewAI saves each deliverable in the same `output/<run-id>/` folder.
+Choose **Hierarchical**, **Sequential**, or **Compare both** in the form. Hierarchical mode lets the Engineering Lead coordinate the specialists; Sequential mode runs the defined task order. Each run has an elapsed-time timer. Compare both runs the same brief twice, reports both durations, and saves files separately under `output/Hierarchical/<run-id>/` and `output/Sequential/<run-id>/`; it uses twice the model quota. Each folder's README and design.md also identify its workflow mode.
+
+In either mode, the Engineering Lead writes `design.md` first as the execution contract: it defines module interfaces, assignments, and acceptance criteria. Each specialist receives that design as task context and has a fixed deliverable: Backend Engineer writes `backend.py`, Frontend Engineer writes `app.py` using the backend contract, and Test Engineer writes `test_backend.py` against the backend implementation. CrewAI saves each deliverable in the corresponding output folder.
 
 For a quick first run, use the app's **Fill a quick example** button. It supplies a small to-do list project with no login or external integrations. Each task output is saved by CrewAI to its own file in the shared run directory.
 
@@ -103,7 +105,7 @@ delivery_team/
 
 All four agent definitions are kept together in `delivery_team/crew_config/agents.yaml`; their tasks are in `delivery_team/crew_config/tasks.yaml`. The application code reads both YAML files to assemble the hierarchical crew.
 
-To run generated files, open the displayed `output/<run-id>/` folder and run `uv sync` followed by `uv run python app.py`. You can also install `requirements.txt` with pip and run `python app.py`. Run generated backend tests manually with `python -m unittest -v test_backend.py`; the workflow does not execute generated code.
+To run generated files, open the displayed mode-labeled folder under `output/` and run `uv sync` followed by `uv run python app.py`. You can also install `requirements.txt` with pip and run `python app.py`. Run generated backend tests manually with `python -m unittest -v test_backend.py`; the workflow does not execute generated code.
 
 ## Project files
 
@@ -111,6 +113,6 @@ To run generated files, open the displayed `output/<run-id>/` folder and run `uv
 - `crew.py` — compatibility exports for the CrewAI workflow.
 - `delivery_team/crew_config/agents.yaml` — all four engineering role definitions.
 - `delivery_team/crew_config/tasks.yaml` — design, backend, frontend, and test tasks.
-- `output/` — each run's complete project files and downloadable archive, kept in its own subfolder.
+- `output/` — each run's complete project files, kept in its own subfolder.
 - `.env.example` — OpenAI and Gemini environment template.
 - `requirements.txt` — Python dependencies.

@@ -2,20 +2,39 @@ design_task:
   name: Engineering design
   description: >
     Analyze this brief: {project_brief}
+    CrewAI workflow mode: {workflow_mode}
 
-    As Engineering Lead, create design.md as the team's execution contract before
-    implementation begins. Include the goal and scope, assumptions and constraints,
-    user workflow, module boundaries, exact public function signatures and data
-    contracts, and testable acceptance criteria. Assign one bounded deliverable to
-    each specialist: backend_engineer owns backend.py; frontend_engineer owns app.py
-    and must use backend.py; test_engineer owns test_backend.py and must test the
-    backend contract. State dependencies and the expected handoff for each file.
-    Keep all generated project files in the shared output directory. The frontend
-    uses Gradio. Describe decisions and assignments only; do not write source code.
-    The specialists must treat this file as authoritative and follow it.
+    As Engineering Lead, create design.md before any implementation starts. This is
+    the execution plan the other agents receive and must follow. Write it as a
+    readable Markdown blueprint using these sections:
+
+    # Project Overview: goal, users, scope, assumptions, and constraints.
+    # User Workflow: the main steps the user performs.
+    # Responsibilities: separate subsections for backend_engineer,
+    frontend_engineer, and test_engineer. For each, list its owned file(s), concrete
+    responsibilities, dependencies, acceptance checks, and handoff.
+    # Backend Design: select storage and data model from the brief, define business
+    rules and exact public function signatures/data contracts for backend.py.
+    # Frontend Design: specify the Gradio layout, interactions, and exact backend
+    functions the UI calls.
+    # Test Plan: map acceptance criteria and edge cases to test_backend.py.
+    # Acceptance Criteria and Handoff Order: make each criterion verifiable and
+    state that backend.py is completed before frontend and tests consume it.
+
+    Near the top of design.md, include `Workflow mode: {workflow_mode}` and briefly
+    describe how that mode coordinates or orders the agents.
+
+    Assign backend_engineer to backend.py, frontend_engineer to app.py, and
+    test_engineer to test_backend.py. Tailor responsibilities and design decisions
+    to the project brief; do not assume a storage model or features the brief does
+    not require. Keep every deliverable in the shared output directory. The frontend
+    uses Gradio. Do not write implementation code in design.md. The specialists must
+    use this document as their source of truth rather than making a new design.
   expected_output: >
-    A Markdown execution plan in design.md that assigns files, defines interfaces,
-    records constraints, and lists verifiable acceptance criteria.
+    A complete design.md Markdown blueprint with Project Overview, User Workflow,
+    Responsibilities, Backend Design, Frontend Design, Test Plan, Acceptance
+    Criteria, and Handoff Order sections. It assigns one file per specialist and
+    defines the interfaces they must implement.
 
 code_task:
   name: Backend implementation

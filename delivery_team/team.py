@@ -82,9 +82,19 @@ class ProjectDeliveryTeam:
             callback=self._task_completed(config["name"]),
         )
 
-    def build(self, project_brief: str) -> tuple[Crew, list[Agent], list[Task]]:
+    def build(self, project_brief: str, process_mode: str = "hierarchical") -> tuple[Crew, list[Agent], list[Task]]:
         if not project_brief.strip():
             raise ValueError("Enter a project description first.")
+        processes = {
+            "hierarchical": Process.hierarchical,
+            "sequential": Process.sequential,
+        }
+        if process_mode not in processes:
+            raise ValueError("process_mode must be 'hierarchical' or 'sequential'.")
+        self.tasks_config["design_task"]["description"] = self.tasks_config["design_task"]["description"].replace(
+            "{workflow_mode}",
+            process_mode.title(),
+        )
 
         engineering_lead = self._create_agent("engineering_lead", lead=True)
         backend_engineer = self._create_agent("backend_engineer")
@@ -118,11 +128,14 @@ class ProjectDeliveryTeam:
 
         agents = [engineering_lead, backend_engineer, frontend_engineer, test_engineer]
         tasks = [design_task, backend_task, frontend_task, test_task]
+        hierarchical = process_mode == "hierarchical"
         crew = Crew(
-            agents=[backend_engineer, frontend_engineer, test_engineer],
+            agents=[backend_engineer, frontend_engineer, test_engineer]
+            if hierarchical
+            else agents,
             tasks=tasks,
-            process=Process.hierarchical,
-            manager_agent=engineering_lead,
+            process=processes[process_mode],
+            manager_agent=engineering_lead if hierarchical else None,
             verbose=True,
         )
         return crew, agents, tasks
@@ -133,13 +146,14 @@ def build_crew(
     llm: LLM | None = None,
     progress_callback: Callable[[str], None] | None = None,
     output_directory: str | Path | None = None,
+    process_mode: str = "hierarchical",
 ) -> tuple[Crew, list[Agent], list[Task]]:
     """Construct the engineering crew and its configured tasks."""
     return ProjectDeliveryTeam(
         llm=llm,
         progress_callback=progress_callback,
         output_directory=output_directory,
-    ).build(project_brief)
+    ).build(project_brief, process_mode=process_mode)
 
 
 def run_project(project_brief: str) -> Any:

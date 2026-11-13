@@ -1,0 +1,58 @@
+design_task:
+  name: Engineering design
+  description: >
+    Analyze this brief: {project_brief}
+
+    As Engineering Lead, create design.md as the team's execution contract before
+    implementation begins. Include the goal and scope, assumptions and constraints,
+    user workflow, module boundaries, exact public function signatures and data
+    contracts, and testable acceptance criteria. Assign one bounded deliverable to
+    each specialist: backend_engineer owns backend.py; frontend_engineer owns app.py
+    and must use backend.py; test_engineer owns test_backend.py and must test the
+    backend contract. State dependencies and the expected handoff for each file.
+    Keep all generated project files in the shared output directory. The frontend
+    uses Gradio. Describe decisions and assignments only; do not write source code.
+    The specialists must treat this file as authoritative and follow it.
+  expected_output: >
+    A Markdown execution plan in design.md that assigns files, defines interfaces,
+    records constraints, and lists verifiable acceptance criteria.
+
+code_task:
+  name: Backend implementation
+  description: >
+    Implement the backend business logic for this brief: {project_brief}
+
+    Follow the Engineering Design (design.md) in your task context as the source of
+    truth. Implement only the backend_engineer assignment, match the agreed public
+    signatures and data contracts, and satisfy the listed acceptance criteria. Write
+    one complete backend.py module, independent of Gradio and external services.
+    Deliver the complete file; return only valid Python source, without Markdown
+    fences. If the design has a gap, make the smallest consistent assumption.
+  expected_output: Complete Python source code for backend.py, with testable functions and no UI code.
+
+frontend_task:
+  name: Frontend implementation
+  description: >
+    Build the frontend for this brief: {project_brief}
+
+    Follow the Engineering Design (design.md) as the source of truth and use the
+    Backend Implementation from your task context. Implement only the
+    frontend_engineer assignment; import backend.py and use its agreed interfaces.
+    Satisfy the listed acceptance criteria, then deliver one complete Gradio app in
+    app.py with empty/error states and a normal Python launch entry point. Return only
+    valid Python source, without Markdown fences. If the design has a gap, make the
+    smallest consistent assumption.
+  expected_output: Complete Gradio Python source code for app.py that uses backend.py.
+
+test_task:
+  name: Backend unit tests
+  description: >
+    Write unit tests for the backend module implementing this brief: {project_brief}
+
+    Follow the Engineering Design (design.md) as the source of truth and inspect the
+    Backend Implementation in your task context. Implement only the test_engineer
+    assignment. Create and deliver test_backend.py using standard-library unittest;
+    cover every applicable acceptance criterion and important edge case. Match the
+    backend's actual public interfaces, do not test the Gradio frontend, and do not
+    call external services. Return only valid Python source, without Markdown fences.
+  expected_output: A runnable unittest module in Python source form for test_backend.py.

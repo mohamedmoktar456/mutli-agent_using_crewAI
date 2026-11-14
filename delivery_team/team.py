@@ -8,7 +8,7 @@ from typing import Any
 from uuid import uuid4
 
 import yaml
-from crewai import Agent, Crew, LLM, Process, Task
+from crewai import Agent, Crew, Process, Task
 
 from .config import configured_llm
 
@@ -18,7 +18,6 @@ class ProjectDeliveryTeam:
 
     def __init__(
         self,
-        llm: LLM | None = None,
         progress_callback: Callable[[str], None] | None = None,
         output_directory: str | Path | None = None,
     ) -> None:
@@ -33,19 +32,24 @@ class ProjectDeliveryTeam:
             self.output_directory = output_root / uuid4().hex
         else:
             requested = Path(output_directory).resolve()
-            resolved_root = output_root.resolve()
-            if requested == resolved_root or not requested.is_relative_to(resolved_root):
-                raise ValueError("Generated files must stay inside the project's output directory.")
             self.output_directory = requested
 
-    def _create_agent(self, key: str, *, lead: bool = False) -> Agent:
+    def _create_agent(
+        self,
+        key: str,
+        *,
+        lead: bool = False,
+        allow_delegation: bool | None = None,
+    ) -> Agent:
         config = self.agents_config[key]
         return Agent(
             role=config["role"],
             goal=config["goal"],
             backstory=config["backstory"],
-            llm=self.llm or configured_llm(key, config.get("llm")),
-            allow_delegation=lead,
+            llm=configured_llm(key, config.get("llm")),
+            allow_delegation=(
+                lead if allow_delegation is None else allow_delegation
+            ),
             max_iter=6 if lead else 2,
             max_execution_time=90 if lead else 60,
             verbose=True,
@@ -68,11 +72,14 @@ class ProjectDeliveryTeam:
         agent: Agent | None = None,
         context: list[Task] | None = None,
         markdown: bool = False,
+        description: str | None = None,
     ) -> Task:
         config = self.tasks_config[key]
         return Task(
             name=config["name"],
-            description=config["description"],
+            description=(
+                config["description"] if description is None else description
+            ),
             expected_output=config["expected_output"],
             agent=agent,
             context=context,
@@ -82,7 +89,7 @@ class ProjectDeliveryTeam:
             callback=self._task_completed(config["name"]),
         )
 
-    def build(self, project_brief: str, process_mode: str = "hierarchical") -> tuple[Crew, list[Agent], list[Task]]:
+    def build(self, project_brief: str, process_mode: str) -> tuple[Crew, list[Agent], list[Task]]:
         if not project_brief.strip():
             raise ValueError("Enter a project description first.")
         processes = {
@@ -91,12 +98,17 @@ class ProjectDeliveryTeam:
         }
         if process_mode not in processes:
             raise ValueError("process_mode must be 'hierarchical' or 'sequential'.")
-        self.tasks_config["design_task"]["description"] = self.tasks_config["design_task"]["description"].replace(
+        hierarchical = process_mode == "hierarchical"
+        design_description = self.tasks_config["design_task"]["description"].replace(
             "{workflow_mode}",
             process_mode.title(),
         )
 
-        engineering_lead = self._create_agent("engineering_lead", lead=True)
+        engineering_lead = self._create_agent(
+            "engineering_lead",
+            lead=True,
+            allow_delegation=hierarchical,
+        )
         backend_engineer = self._create_agent("backend_engineer")
         frontend_engineer = self._create_agent("frontend_engineer")
         test_engineer = self._create_agent("test_engineer")
@@ -104,8 +116,9 @@ class ProjectDeliveryTeam:
         design_task = self._create_task(
             "design_task",
             "design.md",
-            agent=engineering_lead,
+            agent=None if hierarchical else engineering_lead,
             markdown=True,
+            description=design_description,
         )
         backend_task = self._create_task(
             "code_task",
@@ -128,7 +141,6 @@ class ProjectDeliveryTeam:
 
         agents = [engineering_lead, backend_engineer, frontend_engineer, test_engineer]
         tasks = [design_task, backend_task, frontend_task, test_task]
-        hierarchical = process_mode == "hierarchical"
         crew = Crew(
             agents=[backend_engineer, frontend_engineer, test_engineer]
             if hierarchical
@@ -143,19 +155,18 @@ class ProjectDeliveryTeam:
 
 def build_crew(
     project_brief: str,
-    llm: LLM | None = None,
     progress_callback: Callable[[str], None] | None = None,
     output_directory: str | Path | None = None,
-    process_mode: str = "hierarchical",
+    *,
+    process_mode: str,
 ) -> tuple[Crew, list[Agent], list[Task]]:
     """Construct the engineering crew and its configured tasks."""
     return ProjectDeliveryTeam(
-        llm=llm,
         progress_callback=progress_callback,
         output_directory=output_directory,
     ).build(project_brief, process_mode=process_mode)
 
 
-def run_project(project_brief: str) -> Any:
-    crew, _, _ = build_crew(project_brief)
+def run_project(project_brief: str, process_mode: str) -> Any:
+    crew, _, _ = build_crew(project_brief, process_mode=process_mode)
     return crew.kickoff(inputs={"project_brief": project_brief.strip()})

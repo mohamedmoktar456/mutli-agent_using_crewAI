@@ -4,8 +4,9 @@ design_task:
     Analyze this brief: {project_brief}
     CrewAI workflow mode: {workflow_mode}
 
-    As Engineering Lead, create design.md before any implementation starts. This is
-    the execution plan the other agents receive and must follow. Write it as a
+    As Engineering Lead, create design.md before any implementation starts. Write
+    this design task yourself; do not delegate it. This is the execution plan the
+    other agents receive and must follow. Write it as a
     readable Markdown blueprint using these sections:
 
     # Project Overview: goal, users, scope, assumptions, and constraints.

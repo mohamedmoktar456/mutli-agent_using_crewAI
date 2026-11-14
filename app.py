@@ -315,7 +315,8 @@ with st.container(border=True):
         )
         workflow_selection = st.selectbox(
             "Agent workflow",
-            ["Hierarchical", "Sequential", "Compare both"],
+            ["Choose a workflow…", "Hierarchical", "Sequential", "Compare both"],
+            index=0,
             help="Compare both runs the same brief twice and uses twice the Gemini quota.",
         )
         submitted = st.form_submit_button("Generate engineering files", type="primary", use_container_width=True)
@@ -323,6 +324,8 @@ with st.container(border=True):
 if submitted:
     if not brief.strip():
         st.warning("Add a project brief so the team has enough information to work from.")
+    elif workflow_selection == "Choose a workflow…":
+        st.warning("Choose Hierarchical, Sequential, or Compare both before generating the project.")
     else:
         request = (
             f"Project name: {project_name.strip() or 'Untitled project'}\n"
@@ -377,10 +380,10 @@ if submitted:
             error_text = str(exc)
             if "503" in error_text or "UNAVAILABLE" in error_text:
                 st.error("Gemini is temporarily unavailable (503 UNAVAILABLE), so it could not finish this request.")
-                st.info("This usually means temporary provider overload, not a quota response. Wait briefly and retry; change the affected agent's `<AGENT>_MODEL` in `.env` or its `llm` value in `agents.yaml`.")
+                st.info("This usually means temporary provider overload, not a quota response. Wait briefly and retry; change the affected agent's `llm` value in `delivery_team/crew_config/agents.yaml` if you want to use another model.")
             elif "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
                 st.error("The provider rate limit or quota was reached (429).")
-                st.info("Check the Gemini API quota for this project in AI Studio and wait for it to reset. You can switch the affected agent with its `<AGENT>_PROVIDER` setting in `.env`.")
+                st.info("Check the provider API quota and wait for it to reset. The provider and model are set in `delivery_team/crew_config/agents.yaml`.")
             else:
                 st.error(f"The delivery workflow could not complete: {error_text}")
                 st.info("Check that dependencies are installed and the selected provider and API key are configured in `.env`.")

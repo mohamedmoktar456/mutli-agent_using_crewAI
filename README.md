@@ -40,17 +40,11 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and add your Gemini API key. All four agents use Gemini 3.5 Flash-Lite by default, which has a free tier subject to model and project quotas. OpenAI is optional if you later switch a role and have API credits:
+Copy `.env.example` to `.env` and add the API keys for the providers configured in `delivery_team/crew_config/agents.yaml`. The YAML file is the only source for each agent's provider and model; `.env` supplies credentials only:
 
 ```env
-LLM_PROVIDER=gemini
-LLM_MODEL=gemini/gemini-3.5-flash-lite
-ENGINEERING_LEAD_PROVIDER=gemini
-BACKEND_ENGINEER_PROVIDER=gemini
-FRONTEND_ENGINEER_PROVIDER=gemini
-TEST_ENGINEER_PROVIDER=gemini
-OPENAI_API_KEY=your-openai-api-key-here
 GEMINI_API_KEY=your-gemini-api-key-here
+OPENAI_API_KEY=your-openai-api-key-here
 ```
 
 Start the application:
@@ -59,32 +53,31 @@ Start the application:
 streamlit run app.py
 ```
 
-## Assign providers per agent
+## Configure providers per agent
 
-Set an agent-specific provider in `.env`. Supported agent names are `ENGINEERING_LEAD`, `BACKEND_ENGINEER`, `FRONTEND_ENGINEER`, and `TEST_ENGINEER`:
+Edit the `llm` value for each agent in `delivery_team/crew_config/agents.yaml`. Use one of these `provider/model` formats:
 
-| Provider | Value for `*_PROVIDER` or YAML `llm` | Example model |
+| Provider | Example YAML `llm` |
 |---|---|---|
-| Gemini | `gemini` | `gemini/gemini-3.5-flash-lite` |
-| OpenAI | `openai` | `openai/gpt-4o-mini` |
+| Gemini | `gemini/gemini-3.5-flash-lite` |
+| OpenAI | `openai/gpt-5.4-mini` |
 
-For the free-tier setup, keep every agent on Gemini:
+For example, to use OpenAI for the lead and Gemini for the engineers, configure the YAML like this:
 
-```env
-LLM_PROVIDER=gemini
-BACKEND_ENGINEER_PROVIDER=gemini
-ENGINEERING_LEAD_PROVIDER=gemini
-FRONTEND_ENGINEER_PROVIDER=gemini
-TEST_ENGINEER_PROVIDER=gemini
+```yaml
+engineering_lead:
+  llm: openai/gpt-5.4-mini
+backend_engineer:
+  llm: gemini/gemini-3.5-flash-lite
 ```
 
-CrewAI's `llm` field in `agents.yaml` defines each role's default provider and model. Each role can override it through `<AGENT>_PROVIDER` or `<AGENT>_MODEL`; for example, `BACKEND_ENGINEER_MODEL=openai/gpt-5.4-mini`. If an agent has no YAML or role-specific setting, it inherits `LLM_PROVIDER` and `LLM_MODEL`. The app selects `OPENAI_API_KEY` or `GEMINI_API_KEY`/`GOOGLE_API_KEY` to match each role's provider. API keys remain in `.env`, not YAML. A shared `LLM_API_KEY` is used only for roles that use the global provider. The project supports OpenAI and Gemini.
+The app reads each model from YAML and matches it to `OPENAI_API_KEY` or `GEMINI_API_KEY` (`GOOGLE_API_KEY` also works for Gemini). Optional `<AGENT>_API_KEY` variables can supply separate credentials; provider and model environment overrides are not used. Keep API keys in `.env`, never in YAML.
 
 Gemini 3.5 Flash-Lite is listed with free input and output on the Gemini API free tier, subject to usage quotas and project availability. OpenAI API calls use separate API billing and may fail if the organization has no credits.
 
 ## Workflow
 
-Choose **Hierarchical**, **Sequential**, or **Compare both** in the form. Hierarchical mode lets the Engineering Lead coordinate the specialists; Sequential mode runs the defined task order. Each run has an elapsed-time timer. Compare both runs the same brief twice, reports both durations, and saves files separately under `output/Hierarchical/<run-id>/` and `output/Sequential/<run-id>/`; it uses twice the model quota. Each folder's README and design.md also identify its workflow mode.
+Choose **Hierarchical**, **Sequential**, or **Compare both** in the form; the app requires an explicit choice. Hierarchical mode lets the Engineering Lead coordinate the specialists; Sequential mode runs the defined task order. Each run has an elapsed-time timer. Compare both runs the same brief twice, reports both durations, and saves files separately under `output/Hierarchical/<run-id>/` and `output/Sequential/<run-id>/`; it uses twice the model quota. Each folder's README and design.md also identify its workflow mode.
 
 In either mode, the Engineering Lead writes `design.md` first as the execution contract: it defines module interfaces, assignments, and acceptance criteria. Each specialist receives that design as task context and has a fixed deliverable: Backend Engineer writes `backend.py`, Frontend Engineer writes `app.py` using the backend contract, and Test Engineer writes `test_backend.py` against the backend implementation. CrewAI saves each deliverable in the corresponding output folder.
 
@@ -95,7 +88,7 @@ For a quick first run, use the app's **Fill a quick example** button. It supplie
 ```text
 delivery_team/
 ├── config.py                 # Provider settings and LLM setup
-├── team.py                   # Hierarchical crew and shared output workflow
+├── team.py                   # Crew process selection and shared output workflow
 └── crew_config/
     ├── agents.yaml            # All four engineering roles in one file
     └── tasks.yaml             # Design, backend, frontend, and test tasks
@@ -103,7 +96,7 @@ delivery_team/
 
 `crew.py` remains as a compatibility import, while the Streamlit app uses `delivery_team` directly.
 
-All four agent definitions are kept together in `delivery_team/crew_config/agents.yaml`; their tasks are in `delivery_team/crew_config/tasks.yaml`. The application code reads both YAML files to assemble the hierarchical crew.
+All four agent definitions are kept together in `delivery_team/crew_config/agents.yaml`; their tasks are in `delivery_team/crew_config/tasks.yaml`. The application code reads both YAML files to assemble the selected crew process: Hierarchical or Sequential.
 
 To run generated files, open the displayed mode-labeled folder under `output/` and run `uv sync` followed by `uv run python app.py`. You can also install `requirements.txt` with pip and run `python app.py`. Run generated backend tests manually with `python -m unittest -v test_backend.py`; the workflow does not execute generated code.
 
